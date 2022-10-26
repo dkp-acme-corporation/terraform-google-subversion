@@ -293,6 +293,8 @@ resource "google_compute_target_tcp_proxy" "default" {
 
 resource "google_compute_global_address" "default" {
   name = format("svn-%s", var.computeEnvironment)
+  #
+  address_type = "EXTERNAL"
 }
 #
 #######################################################################################################################
