@@ -1,0 +1,20 @@
+# ---------------------------------------------------
+# EditorConfig 
+# doc: https://EditorConfig.org
+# ---------------------------------------------------
+#BOF
+# top-most EditorConfig file
+root = true
+# standard file handling
+[*]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+insert_final_newline = false
+charset = utf-8
+# Markdown specific handling
+[*.md]
+trim_trailing_whitespace = true
+# ---------------------------------------------------
+# ---------------------------------------------------
+#EOF
