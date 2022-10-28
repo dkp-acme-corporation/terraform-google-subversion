@@ -1,0 +1,61 @@
+#
+# BOF
+---
+- name: Ansible Playbook
+  hosts: all
+  connection: ssh
+  become: false
+  gather_facts: false
+  vars:
+    ansible_user: build
+  #
+  pre_tasks:
+    #
+    - name: Check SSH known_hosts for {{ inventory_hostname }}
+      delegate_to: localhost
+      ansible.builtin.command:
+        # ssh-keygen
+        # -l | Show fingerprint of specified public key file
+        # -F | Search for the specified hostname in a known_hosts file, listing any occurrences found.
+        #      This option is useful to find hashed host names or addresses and may also be used in
+        #      conjunction with the -H option to print found keys in a hashed format.
+        cmd: ssh-keygen -F {{ inventory_hostname }}
+      #
+      register: play_known_hosts_cmd
+      failed_when: play_known_hosts_cmd.rc == 1 or play_known_hosts_cmd.rc == 255
+      changed_when: play_known_hosts_cmd.rc == 0
+      ignore_errors: true
+      no_log: true
+    #
+    - name: Log SSH known_hosts for {{ inventory_hostname }}
+      ansible.builtin.debug:
+        var: play_known_hosts_cmd
+        verbosity: 3
+    #
+    - name: Add to SSH known hosts automatically
+      when: play_known_hosts_cmd.rc == 1 or play_known_hosts_cmd.rc == 255
+      delegate_to: localhost
+      ansible.builtin.shell:
+        # ssh-keyscan
+        # -H | Hash all hostnames and addresses in the output.
+        cmd: ssh-keyscan -H "{{ inventory_hostname }}" >> $HOME/.ssh/known_hosts
+      register: play_add_hosts_cmd
+      failed_when: play_add_hosts_cmd.rc != 0
+      no_log: true
+    #
+    - name: Gathering Facts
+      ansible.builtin.setup:
+        gather_subset: all
+      become: true
+  #
+  roles:
+    # Setup additionally provisioned SCSI disks
+    - role: setupDisk
+      become: true
+    #
+    - role: setupSubVersion
+      become: true
+      when: computeProductKey == 'svn'
+
+...
+# EOF

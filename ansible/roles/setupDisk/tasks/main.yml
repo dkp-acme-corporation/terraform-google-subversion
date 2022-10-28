@@ -1,0 +1,771 @@
+# #####################################################################################################################
+#
+#
+# #####################################################################################################################
+# BOF
+---
+#######################################################################################################################
+# Initialize role specific variable defaults
+#######################################################################################################################
+- name: Initialize variables
+  ansible.builtin.set_fact:
+    # Scsi Devices
+    rdSetupScsiDevices: "{{ rdSetupScsiDevices | default({}) }}"
+    # Volume Group
+    rdEmptyVolumeGroups: "{{ rdEmptyVolumeGroups | default({}) }}"
+    rlCurrentVolumeGroupsNum: "{{ rlCurrentVolumeGroupsNum | default([]) }}"
+    # Logical Volume
+    rdSetupLogicalVolumes: "{{ rdSetupLogicalVolumes | default({}) }}"
+    rdCurrentLogicalVolumes: "{{ rdCurrentLogicalVolumes | default({}) }}"
+    #
+# ---------------------------------------------------
+# create dictionary of SCSI attached disks to setup
+- name: Locate SCSI disks to setup
+  ansible.builtin.set_fact:
+    rdSetupScsiDevices: "{{
+        rdSetupScsiDevices |
+          combine( {
+              item.key: {
+                'device': '/dev/' + item.key,
+                'partitionNumber': rvDefaultDisktPartitionNumber
+              }
+            }
+          )
+      }}"
+  when:
+    # ignore the standard OS disk ... will already have been setup during image creation
+    - not item.key | regex_search( rvStandardOsDeviceExcludeRegex | string )
+    # only include SCSI devices
+    - item.key | regex_search( "^sd" )
+  with_dict: "{{ ansible_devices }}"
+# ---------------------------------------------------
+# Debug/Trace logging only
+- name: Log SCSI disks to setup details
+  ansible.builtin.debug:
+    var: rdSetupScsiDevices
+    verbosity: 3
+#######################################################################################################################
+# Software package installs
+# https://docs.ansible.com/ansible/latest/collections/ansible/builtin/package_module.html
+#######################################################################################################################
+- name: Install lvm2 dependency
+  ansible.builtin.package:
+    name: lvm2
+    #
+    state: present
+#######################################################################################################################
+# Disk Partition and Logical Volume Manager(LVM) - Group setup tasks
+#######################################################################################################################
+# Ensure to have current info about the hosts lvm setup
+- name: Gathering LVM Facts
+  ansible.builtin.setup:
+    gather_subset: hardware
+    filter: ansible_lvm
+#
+# Debug/Trace logging only
+- name: Log current LVM setup details
+  ansible.builtin.debug:
+    var: ansible_lvm
+    verbosity: 3
+#
+# create a list of numbers that could be used for volume group naming. e.g vg01
+# NOTE: max is calulcated based on the total number of devices on the host x2
+- name: Build list of possible volume groups numbers
+  ansible.builtin.set_fact:
+    rlVolumeGroupNumbers: "{{
+        rlVolumeGroupNumbers |
+        default([]) + [item]
+      }}"
+  loop: "{{ range( rvDefaultVolumeGroupStartNumber, ansible_devices | length | int * 2 ) | list }}"
+  no_log: true
+#
+# create dictionary with current Logical Volume Manager - group details
+- name: Retrive current LVM volume group setup details
+  ansible.builtin.set_fact:
+    rdSetupScsiDevices: "{{
+      rdSetupScsiDevices |
+        combine( {
+            item.key | regex_replace( '/dev/' ) | regex_replace( '[0-9]$' ): {
+                'deviceName': item.key | regex_replace( '/dev/' ) | regex_replace( '[0-9]$' ),
+                'device': item.key | regex_replace( '[0-9]$' ),
+                'partitionNumber': item.key | regex_replace( '/[a-z]*/[a-z]*') | int,
+                'volumeGroup': item.value['vg'],
+                'volumeGroupNum': item.value['vg'] | regex_replace( '[a-z]' ) | int
+              }
+          },
+        recursive=true )
+      }}"
+  when:
+    # ignore the standard OS disk ... will already have been setup
+    - not item.key | regex_search( rvStandardOsDeviceExcludeRegex | string )
+  with_dict: "{{ ansible_lvm['pvs'] }}"
+#
+# build a list of Logical Volume Manager group numbers
+- name: Create list of used LVM volume groups numbers
+  ansible.builtin.set_fact:
+   rlCurrentVolumeGroupsNum: "{{
+       rlCurrentVolumeGroupsNum + [item.value['volumeGroupNum']]
+     }}"
+  when:
+    - item.value['volumeGroupNum'] is defined
+  with_dict: "{{ rdSetupScsiDevices }}"
+#
+# create list of free Logical Volume Manager group numbers
+- name: Create list of free LVM volume groups numbers
+  ansible.builtin.set_fact:
+    rlFreeVolumeGroupsNum: "{{
+        rlVolumeGroupNumbers |
+        difference( rlCurrentVolumeGroupsNum )
+      }}"
+#
+# create dictionary of disks with missing Logical Volume Manager group data
+- name: Identify devices missing LVM volume group
+  ansible.builtin.set_fact:
+    rdEmptyVolumeGroups: "{{
+      rdEmptyVolumeGroups |
+            combine( {
+              item.key:
+                item.value
+              }
+            )
+      }}"
+  when:
+    - item.value['volumeGroupNum'] is not defined
+  with_dict: "{{ rdSetupScsiDevices }}"
+#
+# setup Logical Volume Manager group number and name e.g vg03
+- name: Assign missing LVM group number and name data
+  ansible.builtin.set_fact:
+   rdSetupScsiDevices: "{{
+     rdSetupScsiDevices |
+        combine( {
+         item: {
+              'deviceName': item,
+              'volumeGroup': '%s%02d' | format( rvDefaultVolumeGroupNamePrefix, rlFreeVolumeGroupsNum[ idx | int ] ),
+              'volumeGroupNum': rlFreeVolumeGroupsNum[ idx | int ]
+            }
+          },
+        recursive=true )
+      }}"
+  loop: "{{ rdEmptyVolumeGroups.keys() | sort( reverse=false ) }}"
+  loop_control:
+    index_var: idx # NOTE: starts at 0
+#
+# Debug/Trace logging only
+- name: Log SCSI disk setup configuration
+  ansible.builtin.debug:
+    var: rdSetupScsiDevices
+#######################################################################################################################
+# Disk Partition configuration
+# https://docs.ansible.com/ansible/latest/collections/community/general/parted_module.html
+#######################################################################################################################
+- name: Setup device partition
+  community.general.parted:
+    device: "{{ item.value['device'] }}"
+    number: "{{ item.value['partitionNumber'] }}"
+    flags: [ lvm ]
+    part_start: 0%
+    part_end: 100%
+    #
+    state: present
+  when:
+    - rdSetupScsiDevices is defined
+    - rdSetupScsiDevices.keys() | length > 0
+  with_dict: "{{ rdSetupScsiDevices }}"
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Group configuration
+# https://docs.ansible.com/ansible/latest/collections/community/general/lvg_module.html
+#######################################################################################################################
+- name: Setup Logical Volume Manager(LVM) group
+  community.general.lvg:
+    vg: "{{ item.value['volumeGroup'] }}"
+    pesize: "{{ rvDefaultVolumeGroupPeSize }}"
+    pvs: "{{ item.value['device'] }}{{ item.value['partitionNumber'] }}"
+    #
+    state: present
+  with_dict: "{{ rdSetupScsiDevices }}"
+# Ensure to have current info about the hosts lvm setup
+- name: Gathering LVM Facts
+  ansible.builtin.setup:
+    gather_subset: hardware
+    filter: ansible_lvm
+#
+# Debug/Trace logging only
+- name: Log current LVM configuration details
+  ansible.builtin.debug:
+    var: ansible_lvm
+    verbosity: 3
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume general setup tasks
+#######################################################################################################################
+# Build a setup dictionary of Logical Volume Manager groups with the number of existing Logical Volumes
+- name: Create list of LVM groups with number of volumes
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          item.key: {
+              'volumeGroup': item.key,
+              'logicalVolumeNum': item.value['num_lvs'] | int,
+              'type': 'unknown'
+            }
+          }
+        )
+      }}"
+  when:
+    - not item.key == "vg00"
+  with_dict: "{{ ansible_lvm['vgs'] }}"
+# ------------------------------------------------------------------
+# Create dictionary of current Logical Volume with disk details
+# ------------------------------------------------------------------
+- name: Create list of current LVM volume disks
+  ansible.builtin.set_fact:
+   rdSetupLogicalVolumes: "{{
+       rdSetupLogicalVolumes |
+         combine( {
+          item.value['vg']: {
+              'deviceLocation': item.key,
+              'devicePosition': idx | int,
+              'deviceSize': item.value['size_g']
+            }
+          },
+         recursive=true )
+     }}"
+  when:
+    - not item.key | regex_search( rvStandardOsDiskExcludeRegex | string ) # ignore the standard OS disk ... will already have been setup
+  with_dict: "{{ ansible_lvm['pvs'] }}"
+  loop_control:
+    index_var: idx # NOTE: starts at 0
+# ------------------------------------------------------------------
+# Build a dictionary of current Logical Volume Manager volumes
+# ------------------------------------------------------------------
+- name: Create list of current data LVM volumes
+  ansible.builtin.set_fact:
+   rdCurrentLogicalVolumes: "{{
+       rdCurrentLogicalVolumes |
+         combine( {
+          item.value['vg']: {
+              'logicalVolumeName': item.key,
+              'logicalVolumeNameNum': item.key | regex_replace( '[a-z]') | int,
+              'type': 'data'
+            }
+          }
+        )
+     }}"
+  when:
+    - item.key | regex_search( '^dat' )
+    - item.value['vg'] != "vg00"
+  with_dict: "{{ ansible_lvm['lvs'] }}"
+# ------------------------------------------------------------------
+# Build a dictionary of current Logical Volume Manager volumes
+# ------------------------------------------------------------------
+- name: Create list of current data LVM volumes
+  ansible.builtin.set_fact:
+   rdCurrentLogicalVolumes: "{{
+       rdCurrentLogicalVolumes |
+         combine( {
+          item.value['vg']: {
+              'logicalVolumeName': item.key,
+              'logicalVolumeNameNum': item.key | regex_replace( '[a-z]') | int,
+              'type': 'app'
+            }
+          }
+        )
+     }}"
+  when:
+    - not item.key | regex_search( '^dat' )
+    - item.value['vg'] != "vg00"
+  with_dict: "{{ ansible_lvm['lvs'] }}"
+# ------------------------------------------------------------------
+# update setup dictionary with current Logical Volume Manager volume details
+# ------------------------------------------------------------------
+- name: Update LVM volume setup details
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+        rdSetupLogicalVolumes |
+        combine( rdCurrentLogicalVolumes, recursive=true )
+      }}"
+# ------------------------------------------------------------------
+# Debug/Trace logging only
+# ------------------------------------------------------------------
+- name: Log general LVM volume setup configuration
+  ansible.builtin.debug:
+    var: rdSetupLogicalVolumes
+    verbosity: 3
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume, DATA instances setup tasks
+#######################################################################################################################
+- name: Initialize Logical Volume data variables
+  ansible.builtin.set_fact:
+    rvCurrentLogicalVolumesNumData: 0
+    rlVolumeNumbersData: "{{ rlVolumeNumbersData | default([]) }}"
+    rlCurrentVolumeNumbersData: "{{ rlCurrentVolumeNumbersData | default([]) }}"
+    rlFreeVolumeNumbersData: "{{ rlFreeVolumeNumbersData | default([]) }}"
+    rdEmptyLogicalVolumesData: "{{ rdEmptyLogicalVolumesData | default({}) }}"
+    rdNewLogicalVolumesData: "{{ rdNewLogicalVolumesData | default({}) }}"
+# ------------------------------------------------------------------
+# Calculate the current number of DATA Logical Volumes
+# ------------------------------------------------------------------
+- name: Calculate current number of DATA Logical Volume
+  ansible.builtin.set_fact:
+    rvCurrentLogicalVolumesNumData: "{{
+        rvCurrentLogicalVolumesNumData | int + 1
+      }}"
+  when:
+    - item.value['type'] == 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+# ------------------------------------------------------------------
+# Debug/Trace logging only
+# ------------------------------------------------------------------
+- name: Log current number of data logical volume
+  ansible.builtin.debug:
+    msg: "Logical Volume (LV) configuration type:[data] current:[{{ rvCurrentLogicalVolumesNumData | int }}] required:[{{ computeNumDataDisk }}]"
+# ------------------------------------------------------------------
+# create a list of numbers that could be used for DATA volume naming. e.g data01
+# NOTE: max is calulcated based on the supplied inventory variable
+# ------------------------------------------------------------------
+- name: Build list of possible data LVM volume numbers
+  ansible.builtin.set_fact:
+    rlVolumeNumbersData: "{{
+        rlVolumeNumbersData + [item]
+      }}"
+  when:
+    - computeNumDataDisk > 0
+  loop: "{{ range( 0, computeNumDataDisk | int ) | list }}"
+# ------------------------------------------------------------------
+# build a list of used DATA Logical Volume numbers
+# ------------------------------------------------------------------
+- name: Create list of used data LVM volume numbers
+  ansible.builtin.set_fact:
+   rlCurrentVolumeNumbersData: "{{
+      rlCurrentVolumeNumbersData + [item.value['logicalVolumeNameNum']]
+     }}"
+  when:
+    - item.value['type'] == 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#
+# Debug/Trace logging only
+- name: Log free app LVM volume numbers
+  ansible.builtin.debug:
+    var: rlCurrentVolumeNumbersData
+# ------------------------------------------------------------------
+# create list of free DATA Logical Volume numbers
+# ------------------------------------------------------------------
+- name: Create list of free LVM volume groups numbers
+  ansible.builtin.set_fact:
+    rlFreeVolumeNumbersData: "{{
+      rlVolumeNumbersData |
+        difference( rlCurrentVolumeNumbersData )
+      }}"
+#
+# Debug/Trace logging only
+- name: Log free data LVM volume numbers
+  ansible.builtin.debug:
+    var: rlFreeVolumeNumbersData
+# ------------------------------------------------------------------
+# create dictionary of disks with missing Logical Volume Manager group data
+# ------------------------------------------------------------------
+- name: Identify LVM volume groups with no Logical Volumes
+  ansible.builtin.set_fact:
+    rdEmptyLogicalVolumesData: "{{
+      rdEmptyLogicalVolumesData |
+            combine( {
+              item.key:
+                item.value
+              }
+            )
+      }}"
+  when:
+    - item.value['logicalVolumeNum'] == 0
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+# ------------------------------------------------------------------
+#
+# ------------------------------------------------------------------
+- name: Create list new data LVM Logical Volumes
+  ansible.builtin.set_fact:
+    rdNewLogicalVolumesData: "{{
+      rdNewLogicalVolumesData |
+            combine( {
+              item.value['devicePosition']:
+                item.value
+              }
+            )
+      }}"
+  when:
+    - rvCurrentLogicalVolumesNumData | int != computeNumDataDisk | int
+  with_dict: "{{ rdEmptyLogicalVolumesData }}"
+# ------------------------------------------------------------------
+#
+# ------------------------------------------------------------------
+- name: Build list new LVM Logical Volumes for data
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          rdNewLogicalVolumesData[item]['volumeGroup']: {
+              'logicalVolumeName': '%s%02d' | format( rvDefaultLogicalVolumeNamePrefixData, rlFreeVolumeNumbersData[ idx | int ] ),
+              'logicalVolumeNameNum': rlFreeVolumeNumbersData[ idx | int ],
+              'type': 'data'
+            }
+          },
+        recursive=true )
+      }}"
+  when:
+    - rdNewLogicalVolumesData.keys() | length > 0
+    - not idx + 1 + rvCurrentLogicalVolumesNumData | int > computeNumDataDisk | int
+  loop: "{{ rdNewLogicalVolumesData.keys() | sort( reverse=true ) }}"
+  loop_control:
+    index_var: idx # NOTE: starts at 0
+# ------------------------------------------------------------------
+# Debug/Trace logging only
+# ------------------------------------------------------------------
+- name: Log data LVM volume setup configuration
+  ansible.builtin.debug:
+    var: rdSetupLogicalVolumes
+    verbosity: 3
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume, APP instances setup tasks
+#######################################################################################################################
+- name: Initialize Logical Volume app variables
+  ansible.builtin.set_fact:
+    # Logical Volume - App
+    rvLogicalVolumesNumApp: 0
+    rvCurrentLogicalVolumesNumApp: 0
+    rlVolumeNumbersApp: "{{ rlVolumeNumbersApp | default([]) }}"
+    rlCurrentVolumeNumbersApp: "{{ rlCurrentVolumeNumbersApp | default([]) }}"
+    rlFreeVolumeNumbersApp: "{{ rlFreeVolumeNumbersApp | default([]) }}"
+    rdEmptyLogicalVolumesApp: "{{ rdEmptyLogicalVolumesApp | default({}) }}"
+    rdNewLogicalVolumesApp: "{{ rdNewLogicalVolumesApp | default({}) }}"
+# ------------------------------------------------------------------
+# Calculate the total number of APP Logical Volumes needed
+# ------------------------------------------------------------------
+- name: Calculate number of APP Logical Volume
+  ansible.builtin.set_fact:
+    rvLogicalVolumesNumApp: " {{
+      rvLogicalVolumesNumApp | int + 1
+      }}"
+  when:
+    - item.value['type'] != 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+# ------------------------------------------------------------------
+# Calculate the current number of APP Logical Volumes
+# ------------------------------------------------------------------
+- name: Calculate current number of APP Logical Volume
+  ansible.builtin.set_fact:
+    rvCurrentLogicalVolumesNumApp: "{{
+      rvCurrentLogicalVolumesNumApp | int + 1
+      }}"
+  when:
+    - item.value['type'] == 'app'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+# ------------------------------------------------------------------
+# Debug/Trace logging only
+# ------------------------------------------------------------------
+- name: Log current number of app logical volume
+  ansible.builtin.debug:
+    msg: "Logical Volume (LV) configuration type:[app] current:[{{ rvCurrentLogicalVolumesNumApp | int }}] required:[{{ rvLogicalVolumesNumApp | int }}]"
+# ------------------------------------------------------------------
+# create a list of numbers that could be used for APP volume naming. e.g app01
+# NOTE: max is calulcated based on the all non-DATA instances
+# ------------------------------------------------------------------
+- name: Build list of possible app LVM volume numbers
+  ansible.builtin.set_fact:
+    rlVolumeNumbersApp: "{{
+        rlVolumeNumbersApp + [item]
+      }}"
+  when:
+    - rvLogicalVolumesNumApp | int > 0
+  loop: "{{ range( 0, rvLogicalVolumesNumApp | int ) | list }}"
+# ------------------------------------------------------------------
+# build a list of used APP Logical Volume numbers
+# ------------------------------------------------------------------
+- name: Create list of used app LVM volume numbers
+  ansible.builtin.set_fact:
+   rlCurrentVolumeNumbersApp: "{{
+       rlCurrentVolumeNumbersApp + [item.value['logicalVolumeNameNum']]
+     }}"
+  when:
+    - item.value['type'] == 'app'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+# ------------------------------------------------------------------
+# create list of free APP Logical Volume numbers
+# ------------------------------------------------------------------
+- name: Create list of free app LVM volume numbers
+  ansible.builtin.set_fact:
+    rlFreeVolumeNumbersApp: "{{
+        rlVolumeNumbersApp |
+          difference( rlCurrentVolumeNumbersApp )
+      }}"
+# ------------------------------------------------------------------
+# create dictionary of empty Logical Volume Manager volume data
+# ------------------------------------------------------------------
+- name: Identify LVM volume groups with no Logical Volumes
+  ansible.builtin.set_fact:
+    rdEmptyLogicalVolumesApp: "{{
+      rdEmptyLogicalVolumesApp |
+            combine( {
+              item.key:
+                item.value
+              }
+            )
+      }}"
+  when:
+    - item.value['logicalVolumeNameNum'] is not defined
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+# ------------------------------------------------------------------
+# create dictionary for new Logical Volume Manager volume setups
+# ------------------------------------------------------------------
+- name: Create list new app LVM Logical Volumes
+  ansible.builtin.set_fact:
+    rdNewLogicalVolumesApp: "{{
+      rdNewLogicalVolumesApp |
+            combine( {
+              item.value['devicePosition']:
+                item.value
+              }
+            )
+      }}"
+  when:
+    - rvCurrentLogicalVolumesNumApp | int != rvLogicalVolumesNumApp | int
+  with_dict: "{{ rdEmptyLogicalVolumesApp }}"
+# ------------------------------------------------------------------
+#
+# ------------------------------------------------------------------
+- name: Build list new LVM Logical Volumes for app
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          rdNewLogicalVolumesApp[item]['volumeGroup']: {
+              'logicalVolumeName': '%s%02d' | format( rvDefaultLogicalVolumeNamePrefixApp, rlFreeVolumeNumbersApp[ idx | int ] ),
+              'logicalVolumeNameNum': rlFreeVolumeNumbersApp[ idx | int ],
+              'type': 'app'
+            }
+          },
+        recursive=true )
+      }}"
+  when:
+    - rdNewLogicalVolumesApp.keys() | length > 0
+    - not idx + 1 + rvCurrentLogicalVolumesNumApp | int > rvLogicalVolumesNumApp | int
+  loop: "{{ rdNewLogicalVolumesApp.keys() | sort( reverse=false ) }}"
+  loop_control:
+    index_var: idx # NOTE: starts at 0
+# ------------------------------------------------------------------
+# Debug/Trace logging only
+# ------------------------------------------------------------------
+- name: Log app LVM volume setup configuration
+  ansible.builtin.debug:
+    var: rdSetupLogicalVolumes
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume configuration
+# https://docs.ansible.com/ansible/latest/collections/community/general/lvol_module.html
+#######################################################################################################################
+- name: Setup Logical Volume Manager(LVM) volume
+  community.general.lvol:
+    lv: "{{ item.value['logicalVolumeName'] }}"
+    vg: "{{ item.value['volumeGroup'] }}"
+    size: 100%PVS
+    #
+    state: present
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume filesystem setup
+#######################################################################################################################
+- name: Logical Volume Manager(LVM) volume device name setup default
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          item.key: {
+            'logicalVolumeDevice': '/dev/%s/%s' | format( item.value['volumeGroup'], item.value['logicalVolumeName'] ),
+            'logicalVolumeDeviceName': '%s%02d' | format( computeProductKey, item.value['logicalVolumeNameNum'] ),
+            }
+          },
+        recursive=true )
+      }}"
+  when:
+    - item.value['type'] != 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#
+- name: Logical Volume Manager(LVM) volume device name setup no count for first instance
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          item.key: {
+            'logicalVolumeDevice': '/dev/%s/%s' | format( item.value['volumeGroup'], item.value['logicalVolumeName'] ),
+            'logicalVolumeDeviceName': '%s' | format( computeProductKey),
+            }
+          },
+        recursive=true )
+      }}"
+  when:
+    - item.value['type'] != 'data'
+    - rvDefaultFileSystemAddCountToFirstInstance | bool == 0
+    - item.value['logicalVolumeNameNum'] == 0
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#
+- name: Logical Volume Manager(LVM) volume device data name setup default
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          item.key: {
+            'logicalVolumeDevice': '/dev/%s/%s' | format( item.value['volumeGroup'], item.value['logicalVolumeName'] ),
+            'logicalVolumeDeviceName': '%s%02d' | format( rvDefaultFileSystemMountDataName, item.value['logicalVolumeNameNum'] ),
+            }
+          },
+        recursive=true )
+      }}"
+  when:
+    - item.value['type'] == 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#
+- name: Logical Volume Manager(LVM) volume device data name setup default
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          item.key: {
+            'logicalVolumeDevice': '/dev/%s/%s' | format( item.value['volumeGroup'], item.value['logicalVolumeName'] ),
+            'logicalVolumeDeviceName': '%s' | format( rvDefaultFileSystemMountDataName ),
+            }
+          },
+        recursive=true )
+      }}"
+  when:
+    - item.value['type'] == 'data'
+    - rvDefaultFileSystemAddCountToFirstInstance | bool == 0
+    - item.value['logicalVolumeNameNum'] == 0
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#
+- name: Logical Volume Manager(LVM) volume device mount setup default
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          item.key: {
+            'logicalVolumeDevicePath': '%s/%s' | format( rvDefaultLogicalVolumeRootDirectory, item.value['logicalVolumeDeviceName'] ),
+            'logicalVolumeDeviceMount': '%s/%s' | format( rvDefaultLogicalVolumeRootDirectory, item.value['logicalVolumeDeviceName'] ),
+            }
+          },
+        recursive=true )
+      }}"
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#
+- name: create list of Volume Manager(LVM) volume device app mounts
+  ansible.builtin.set_fact:
+    rdAppLogicalVolumes: "{{
+      rdAppLogicalVolumes | default({}) |
+        combine( {
+          item.value['logicalVolumeNameNum']:
+            item.value
+          }
+        )
+      }}"
+  when:
+    - item.value['type'] != 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#
+- name: Log app LVM volume setup configuration
+  ansible.builtin.debug:
+    var: rdAppLogicalVolumes
+#
+- name: Logical Volume Manager(LVM) volume device data mount under app mount
+  ansible.builtin.set_fact:
+    rdSetupLogicalVolumes: "{{
+      rdSetupLogicalVolumes |
+        combine( {
+          item.key: {
+            'logicalVolumeDevicePath': '%s/%s' | format( rdAppLogicalVolumes[item.value['logicalVolumeNameNum']]['logicalVolumeDevicePath'],
+                                                         item.value['logicalVolumeDeviceName'] ),
+            'logicalVolumeDeviceMount': '%s/%s' | format( rdAppLogicalVolumes[item.value['logicalVolumeNameNum']]['logicalVolumeDeviceMount'],
+                                                          item.value['logicalVolumeDeviceName'] ),
+            }
+          },
+        recursive=true )
+      }}"
+  when:
+    - item.value['type'] == 'data'
+    - rvDefaultFileSystemMountDataUnderAppInstance | bool == 1
+    - rdAppLogicalVolumes[item.value['logicalVolumeNameNum']] is defined
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+# ------------------------------------------------------------------
+# Debug/Trace logging only
+# ------------------------------------------------------------------
+- name: Log complete LVM volume setup configuration
+  ansible.builtin.debug:
+    var: rdSetupLogicalVolumes
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume filesystem format
+# https://docs.ansible.com/ansible/latest/collections/community/general/filesystem_module.html
+#######################################################################################################################
+- name: Format the filesystem
+  community.general.filesystem:
+    dev: "{{ item.value['logicalVolumeDevice'] }}"
+    fstype: "{{ rvDefaultLogicalVolumeFileSystemType }}"
+    #
+    state: present
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume filesystem directory
+# https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
+######################################################################################################################
+- name: Create app directory if does not exist
+  ansible.builtin.file:
+    path: "{{ item.value['logicalVolumeDevicePath'] }}"
+    # NOTE: /usr/bin/chmod modes are actually octal numbers
+    mode: 0755
+    #
+    state: directory
+  when:
+    - item.value['type'] != 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume filesystem mount
+# https://docs.ansible.com/ansible/latest/collections/ansible/posix/mount_module.html
+######################################################################################################################
+- name: Mount the app filesystem
+  ansible.posix.mount:
+    src: "{{ item.value['logicalVolumeDevice'] }}"
+    fstype: "{{ rvDefaultLogicalVolumeFileSystemType }}"
+    path: "{{ item.value['logicalVolumeDeviceMount'] }}"
+    #
+    state: mounted
+  when:
+    - item.value['type'] != 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume filesystem directory
+# https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
+######################################################################################################################
+- name: Create data directory if does not exist
+  ansible.builtin.file:
+    path: "{{ item.value['logicalVolumeDevicePath'] }}"
+    # NOTE: /usr/bin/chmod modes are actually octal numbers
+    mode: 0755
+    #
+    state: directory
+  when:
+    - item.value['type'] == 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+#######################################################################################################################
+# Logical Volume Manager(LVM) - Logical Volume filesystem mount
+# https://docs.ansible.com/ansible/latest/collections/ansible/posix/mount_module.html
+######################################################################################################################
+- name: Mount the data filesystem
+  ansible.posix.mount:
+    src: "{{ item.value['logicalVolumeDevice'] }}"
+    fstype: "{{ rvDefaultLogicalVolumeFileSystemType }}"
+    path: "{{ item.value['logicalVolumeDeviceMount'] }}"
+    #
+    state: mounted
+  when:
+    - item.value['type'] == 'data'
+  with_dict: "{{ rdSetupLogicalVolumes }}"
+
+...
+# #####################################################################################################################
+# ---------------------------------------------------------------------------------------------------------------------
+# #####################################################################################################################
+# EOF

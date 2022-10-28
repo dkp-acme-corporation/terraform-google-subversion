@@ -1,0 +1,42 @@
+# #####################################################################################################################
+#
+#
+# #####################################################################################################################
+# BOF
+# https://docs.ansible.com/ansible/latest/user_guide/playbooks_variables.html#variable-precedence-where-should-i-put-a-variable
+#
+# ---------------------------------------------------
+# Inventory specific defaults
+# ---------------------------------------------------
+computeProductKey: app
+computeNumDataDisk: 0
+# ---------------------------------------------------
+# Role sepecific deaults
+rvStandardOsDeviceExcludeRegex: '^sda'
+rvStandardOsDiskExcludeRegex: '^/dev/sda'
+# ---------------------------------------------------
+# Default Logical Volume Manager (LVM) group
+rvDefaultVolumeGroupNamePrefix: vg
+rvDefaultVolumeGroupStartNumber: 1
+# ---------------------------------------------------
+# Default Logical Volume Manager (LVM) group physical extent (PE) size
+rvDefaultVolumeGroupPeSize: 4096
+# ---------------------------------------------------
+# Default Logical Volume Manager (LVM) - Logical Volume(LV)
+rvDefaultLogicalVolumeNamePrefixData: dat
+rvDefaultLogicalVolumeNamePrefixApp: app
+# ---------------------------------------------------
+# Default Logical Volume Manager (LVM) - Logical Volume(LV) FileSystem setup
+rvDefaultLogicalVolumeRootDirectory: /opt
+rvDefaultLogicalVolumeFileSystemType: xfs
+rvDefaultFileSystemAddCountToFirstInstance: 0
+rvDefaultFileSystemMountDataName: data
+rvDefaultFileSystemMountDataUnderAppInstance: 1
+# ---------------------------------------------------
+# Default disk partition number to use
+rvDefaultDisktPartitionNumber: 1
+#
+# #####################################################################################################################
+# ---------------------------------------------------------------------------------------------------------------------
+# #####################################################################################################################
+# EOF

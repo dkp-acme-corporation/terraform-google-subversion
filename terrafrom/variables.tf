@@ -20,6 +20,10 @@ variable "gcpZone" {
   type = string
 }
 ## ---------------------------------------------------
+variable "computeProductKey" {
+  type = string
+}
+## ---------------------------------------------------
 variable "computeEnvironment" {
   type = string
 }

@@ -1,0 +1,10 @@
+---
+
+skip_list:
+  - var-naming
+
+warn_list:  # or 'skip_list' to silence them completely
+  - experimental  # all rules tagged as experimental
+  - '106'  # Role name {0} does not match ``^[a-z][a-z0-9_]+$`` pattern
+
+...
