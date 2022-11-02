@@ -41,9 +41,9 @@ terraform {
     hostname = "app.terraform.io"
     #organization = <TF_CLOUD_ORGANIZATION>
     #tokne = <TF_TOKEN_*>
-    workspaces {
-      #name = <TF_WORKSPACE>
-    }
+    #workspaces {
+    #  name =  <TF_WORKSPACE>
+    #}
   }
   # ---------------------------------------------------
 } #END => terraform
