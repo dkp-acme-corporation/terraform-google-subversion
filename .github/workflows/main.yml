@@ -10,6 +10,10 @@ on: [ push ]
 # Relative paths will be under the $GITHUB_WORKSPACE directory
 env:
   TERRAFORM_CODE_PATH: ./terraform
+  TF_TOKEN_app_terraform_io: ${{ secrets.TF_CLOUD_TOKEN }}
+  TF_CLOUD_ORGANIZATION: ${{ secrets.TF_CLOUD_ORGANIZATION }}
+  GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+
 defaults:
   run: 
     shell: bash
