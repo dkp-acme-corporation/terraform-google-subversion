@@ -113,6 +113,7 @@ locals {
   }
   #
   builtComputeNumDataDisk = length(resource.google_compute_attached_disk.default) - 1
+  buildComputerUsers = join(", ", [for key in var.computeSshKeys : "${key.userId}"])
   builtComputeInstanceMap = { for i, data in local.instanceConfig :
     "${i}" => { 
       "hostName"  = resource.google_compute_instance.default[i].hostname
@@ -327,6 +328,7 @@ resource "local_file" "ansibleInventory" {
            computeEnvironment=${var.computeEnvironment}
            computeProductKey=${var.computeProductKey}
            computeNumDataDisk=${local.builtComputeNumDataDisk}
+           computeUsers=${local.buildComputerUsers}
            
            [${var.computeProductKey}]
            # members of the '${var.computeProductKey}' group
