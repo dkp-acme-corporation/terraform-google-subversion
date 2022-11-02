@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: Initialization
         run: |
-          echo "REPOSITORY_NAME=$(basename ${{ github.repository }})" >> $GITHUB_ENV
+          echo "TF_WORKSPACE=$(basename ${{ github.repository }})" >> $GITHUB_ENV
       - name: Checkout source code
         uses: actions/checkout@v3
       ## ---------------------------------------------------
@@ -61,7 +61,6 @@ jobs:
         id: terraform-init
         run: |
           cd ${{ env.TERRAFORM_CODE_PATH }}
-          terraform workspace select $REPOSITORY_NAME
           terraform init
   validation:
    runs-on: ubuntu-latest

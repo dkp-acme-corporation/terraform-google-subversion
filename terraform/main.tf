@@ -39,10 +39,10 @@ terraform {
   # ---------------------------------------------------
   cloud {
     hostname = "app.terraform.io"
-    #organization = "dkp-acme-corporation"
+    #organization = <TF_CLOUD_ORGANIZATION>
+    #tokne = <TF_TOKEN_*>
     workspaces {
-      tags = ["app"]
-      #name = "terraform-google-subversion"
+      #name = <TF_WORKSPACE>
     }
   }
   # ---------------------------------------------------
