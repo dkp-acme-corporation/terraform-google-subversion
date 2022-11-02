@@ -8,7 +8,7 @@ run-name: Standard workflow run by ${{ github.actor }}
 on: [ push ]
 
 env:
-  TERRAFORM_CODE_PATH: ~/terraform
+  TERRAFORM_CODE_PATH: ./terraform
 defaults:
   run: 
     shell: bash
