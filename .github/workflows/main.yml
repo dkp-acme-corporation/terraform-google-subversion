@@ -115,7 +115,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     ## ---------------------------------------------------
-    - name: Vulnerability scan in IaC mode
+    - name: Trivy IaC vulnerability scan
       # src: https://github.com/aquasecurity/trivy-action
       uses: aquasecurity/trivy-action@master
       with:
@@ -127,10 +127,10 @@ jobs:
         ignore-unfixed: true
         severity: 'CRITICAL,HIGH'
     ## ---------------------------------------------------
-    #- name: Upload Trivy scan results to GitHub Security tab
-    #  uses: github/codeql-action/upload-sarif@v2
-    #  with:
-    #    sarif_file: ${{ env.AQUA_TRIVY_OUTPUTFILE }}
+    - name: Trivy IaC vulnerability scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: ${{ env.AQUA_TRIVY_OUTPUTFILE }}
 
 ...
 # EOF
