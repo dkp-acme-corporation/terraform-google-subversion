@@ -1,0 +1,19 @@
+
+# Add 'repo' label to any root file changes
+repo:
+- '*'
+# 
+git:
+- any: ['**/.gitignore']
+#
+ansible:
+- any: ['ansible/**/*.yml']
+#
+terraform:
+- any: ['terraform/**/*.tf', 'terraform/**/*.tfvars']
+#
+documentation:
+- any: ['**/*.md']
+
+...
+# EOF
