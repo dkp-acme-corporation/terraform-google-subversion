@@ -113,7 +113,7 @@ locals {
   }
   #
   builtComputeNumDataDisk = length(resource.google_compute_attached_disk.default) - 1
-  buildComputerUsers      = join(", ", [for key in var.computeSshKeys : "${key.userId}"])
+  buildComputerUsers = join(", ", [for key in var.computeSshKeys : "${key.userId}"])
   builtComputeInstanceMap = { for i, data in local.instanceConfig :
     "${i}" => {
       "hostName" = resource.google_compute_instance.default[i].hostname
