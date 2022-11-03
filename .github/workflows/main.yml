@@ -166,7 +166,7 @@ jobs:
           # Add the path to the configuration file that you would like to test.
           # For example `deployment.yaml` for a Kubernetes deployment manifest
           # or `main.tf` for a Terraform configuration file
-          file: ${{ TERRAFORM_CODE_PATH }}/${{ matrix.files }}
+          file: ${{ env.TERRAFORM_CODE_PATH }}/${{ matrix.files }}
           sarif: true
           args: --severity-threshold=medium --sarif-file-output=${{ matrix.files }}.sarif
 
