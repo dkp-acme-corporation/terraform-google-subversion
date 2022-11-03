@@ -103,7 +103,7 @@
 # build a list of Logical Volume Manager group numbers
 - name: Create list of used LVM volume groups numbers
   ansible.builtin.set_fact:
-   rlCurrentVolumeGroupsNum: "{{
+    rlCurrentVolumeGroupsNum: "{{
        rlCurrentVolumeGroupsNum + [item.value['volumeGroupNum']]
      }}"
   when:
@@ -136,8 +136,8 @@
 # setup Logical Volume Manager group number and name e.g vg03
 - name: Assign missing LVM group number and name data
   ansible.builtin.set_fact:
-   rdSetupScsiDevices: "{{
-     rdSetupScsiDevices |
+    rdSetupScsiDevices: "{{
+      rdSetupScsiDevices |
         combine( {
          item: {
               'deviceName': item,
@@ -163,7 +163,7 @@
   community.general.parted:
     device: "{{ item.value['device'] }}"
     number: "{{ item.value['partitionNumber'] }}"
-    flags: [ lvm ]
+    flags: [lvm]
     part_start: 0%
     part_end: 100%
     #
@@ -220,7 +220,7 @@
 # ------------------------------------------------------------------
 - name: Create list of current LVM volume disks
   ansible.builtin.set_fact:
-   rdSetupLogicalVolumes: "{{
+    rdSetupLogicalVolumes: "{{
        rdSetupLogicalVolumes |
          combine( {
           item.value['vg']: {
@@ -241,7 +241,7 @@
 # ------------------------------------------------------------------
 - name: Create list of current data LVM volumes
   ansible.builtin.set_fact:
-   rdCurrentLogicalVolumes: "{{
+    rdCurrentLogicalVolumes: "{{
        rdCurrentLogicalVolumes |
          combine( {
           item.value['vg']: {
@@ -261,8 +261,8 @@
 # ------------------------------------------------------------------
 - name: Create list of current data LVM volumes
   ansible.builtin.set_fact:
-   rdCurrentLogicalVolumes: "{{
-       rdCurrentLogicalVolumes |
+    rdCurrentLogicalVolumes: "{{
+      rdCurrentLogicalVolumes |
          combine( {
           item.value['vg']: {
               'logicalVolumeName': item.key,
@@ -271,7 +271,7 @@
             }
           }
         )
-     }}"
+      }}"
   when:
     - not item.key | regex_search( '^dat' )
     - item.value['vg'] != "vg00"
@@ -337,7 +337,7 @@
 # ------------------------------------------------------------------
 - name: Create list of used data LVM volume numbers
   ansible.builtin.set_fact:
-   rlCurrentVolumeNumbersData: "{{
+    rlCurrentVolumeNumbersData: "{{
       rlCurrentVolumeNumbersData + [item.value['logicalVolumeNameNum']]
      }}"
   when:
@@ -481,7 +481,7 @@
 # ------------------------------------------------------------------
 - name: Create list of used app LVM volume numbers
   ansible.builtin.set_fact:
-   rlCurrentVolumeNumbersApp: "{{
+    rlCurrentVolumeNumbersApp: "{{
        rlCurrentVolumeNumbersApp + [item.value['logicalVolumeNameNum']]
      }}"
   when:
@@ -653,7 +653,7 @@
       }}"
   with_dict: "{{ rdSetupLogicalVolumes }}"
 #
-- name: create list of Volume Manager(LVM) volume device app mounts
+- name: Create list of Volume Manager(LVM) volume device app mounts
   ansible.builtin.set_fact:
     rdAppLogicalVolumes: "{{
       rdAppLogicalVolumes | default({}) |
