@@ -4,7 +4,7 @@ repo:
 - '*'
 # 
 git:
-- any: ['**/.gitignore']
+- any: ['**/.gitignore','.github/**/*']
 #
 ansible:
 - any: ['ansible/**/*.yml']
