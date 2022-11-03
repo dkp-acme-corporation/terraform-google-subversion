@@ -43,6 +43,7 @@ jobs:
             /usr/local/bin/terraform
             ${{ env.TERRAFORM_CODE_PATH }}/.terraform
           key: ${{ runner.os }}-terraform-${{ github.ref_name }}
+          update: true
       ## ---------------------------------------------------
       - name: Terraform installation
         id: terraform-install
