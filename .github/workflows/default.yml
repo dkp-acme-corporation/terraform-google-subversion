@@ -84,6 +84,14 @@ jobs:
             ${{ env.TERRAFORM_CODE_PATH }}/.terraform
         key: ${{ runner.os }}-terraform-${{ github.ref_name }}
     ## ---------------------------------------------------
+    - name: debug
+      run: |
+        pwd
+        find .
+        set
+        terraform version
+      ## ---------------------
+    ## ---------------------------------------------------
     - name: Terraform Validate
       run: |
         cd ${{ env.TERRAFORM_CODE_PATH }}
