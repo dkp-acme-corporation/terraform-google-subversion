@@ -82,6 +82,7 @@ jobs:
     ## ---------------------------------------------------
     - name: Terraform Validate
       run: |
+        /usr/bin/git log -1 --format='%H'
         cd ${{ env.TERRAFORM_DIR }}
         terraform validate
     - name: Git check 
