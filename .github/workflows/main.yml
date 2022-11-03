@@ -104,11 +104,11 @@ jobs:
           #
           echo "Updates to the repository completed successfully" 
         fi
-  Scanning:
+  scanning-trivy:
    runs-on: ubuntu-latest
    needs: [ validation ]
    env: 
-      AQUA_TRIVY_OUTPUTFILE: aquasecurity-trivy-results.sarif
+      OUTPUTFILE: trivy-results.sarif
    #
    steps:
     ## ---------------------------------------------------
@@ -122,7 +122,7 @@ jobs:
         scan-type: 'config'
         hide-progress: false
         format: 'sarif'
-        output: ${{ env.AQUA_TRIVY_OUTPUTFILE }}
+        output: ${{ env.OUTPUTFILE }}
         exit-code: '1'
         ignore-unfixed: true
         severity: 'CRITICAL,HIGH'
@@ -130,8 +130,49 @@ jobs:
     - name: Trivy IaC vulnerability scan results
       uses: github/codeql-action/upload-sarif@v2
       with:
-        sarif_file: ${{ env.AQUA_TRIVY_OUTPUTFILE }}
-
-
+        sarif_file: ${{ env.OUTPUTFILE }}
+  scanning-snyk:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status 
+    runs-on: ubuntu-latest
+    needs: [ validation ]
+    env: 
+      OUTPUTFILE: snyk-results.sarif
+    strategy:
+      matrix:
+        files:
+          - terraform/main.tf
+          - terraform/outputs.tf
+          - terraform/variables.tf
+    steps:
+      ## ---------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v3
+      ## ---------------------------------------------------
+      - name: Snyk IaC vulnerability scan
+        # Snyk can be used to break the build when it detects security issues.
+        # In this case we want to upload the issues to GitHub Code Scanning
+        continue-on-error: true
+        # https://github.com/snyk/actions
+        uses: snyk/actions/iac@14818c4695ecc4045f33c9cee9e795a788711ca4
+        env:
+          # In order to use the Snyk Action you will need to have a Snyk API token.
+          # More details in https://github.com/snyk/actions#getting-your-snyk-token
+          # or you can signup for free at https://snyk.io/login
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          # Add the path to the configuration file that you would like to test.
+          # For example `deployment.yaml` for a Kubernetes deployment manifest
+          # or `main.tf` for a Terraform configuration file
+          file: ${{ matrix.files }}
+          sarif: true
+          args: --severity-threshold=medium --sarif-file-output=${{ env.OUTPUTFILE }}
+      ## ---------------------------------------------------
+      - name: Snyk IaC vulnerability scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: ${{ env.OUTPUTFILE }}
 ...
 # EOF
