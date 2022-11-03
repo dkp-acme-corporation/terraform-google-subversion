@@ -100,9 +100,10 @@ jobs:
           echo "No updates required to code format" 
         else
           # commit the needed changes
-          #it commit --message "CI ${{ github.repository }} code format changed" 
+          git commit --message "GitHub Run ID[${{ github.run_id }}] updated code format" 
           #
           git status --short
+          git remote --verbose
           #
           # push the updated code back into the repo
           #git push --push-option=ci.skip origin HEAD:${{ github.ref_name }}
