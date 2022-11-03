@@ -86,7 +86,7 @@ jobs:
         terraform validate
     ## ---------------------------------------------------
     - name: test
-      run: git status --short
+      run: git status
     - name: Terraform Format
       run: |
         cd ${{ env.TERRAFORM_DIR }}
