@@ -21,6 +21,7 @@ defaults:
 jobs:
   preparation:
     runs-on: ubuntu-latest
+    environment: prd
     env: 
       TERRAFORM_VERSION: 1.3.3
     # 
@@ -64,6 +65,7 @@ jobs:
           terraform init
   validation:
    runs-on: ubuntu-latest
+   environment: prd
    needs: [ preparation ]
    #
    steps:
@@ -89,21 +91,22 @@ jobs:
       run: |
         terraform fmt -recursive -diff
         #
-        git config user.email "${GITLAB_USER_EMAIL}"
-        git config user.name "${GITLAB_USER_NAME}"
-        #git add --update *.tf *.tfvars
-        git status
+        git config user.email github-actions@github.com
+        git config user.name github-actions
+        #
+        TMP=$(git add --update **/*.tf **/*.tfvars)
+        #
         if [ -n "$(git status | grep 'no changes added to commit')" ]; then
           echo "No updates required to code format" 
         else
           # commit the needed changes
-          #git commit --message "CI ${{ github.repository }} code format changed" 
+          git commit --message "CI ${{ github.repository }} code format changed" 
           #
-          #git status --short
+          git status --short
           #
           # push the updated code back into the repo
           #git push --push-option=ci.skip origin HEAD:${{ github.ref_name }}
-          #git push
+          git push
           #
           git --no-pager log --pretty=oneline -n2
           #
