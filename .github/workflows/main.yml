@@ -120,17 +120,19 @@ jobs:
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: 'config'
+        scan-ref: ${{ env.TERRAFORM_CODE_PATH }}
         hide-progress: false
         format: 'sarif'
         output: ${{ env.OUTPUTFILE }}
         exit-code: '1'
         ignore-unfixed: true
-        severity: 'CRITICAL,HIGH'
+        severity: 'MEDIUM,HIGH,CRITICAL'
     ## ---------------------------------------------------
     - name: Trivy IaC vulnerability scan results
       uses: github/codeql-action/upload-sarif@v2
       with:
         sarif_file: ${{ env.OUTPUTFILE }}
+    ## ---------------------------------------------------
   scanning-snyk:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -168,7 +170,8 @@ jobs:
           # or `main.tf` for a Terraform configuration file
           file: ${{ env.TERRAFORM_CODE_PATH }}/${{ matrix.files }}
           sarif: true
-          args: --severity-threshold=medium --sarif-file-output=${{ matrix.files }}.sarif
+          # Note: the  --sarif-file-output=${{ matrix.files }}.sarif has no affect
+          args: --severity-threshold=medium 
 
       - name: debug
         run: |
