@@ -5,7 +5,11 @@
 
 name: Standard workflow 
 run-name: Standard workflow run by ${{ github.actor }}
-on: [ push ]
+on:
+  push:
+   branches:
+      - 'main'
+  workflow_dispatch:
 
 # Relative paths will be under the $GITHUB_WORKSPACE directory
 env:
@@ -181,6 +185,29 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: ${{ env.OUTPUTFILE }}
-
+  testing:
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    needs: [ scanning-trivy, scanning-snyk ]
+    #
+    steps:
+      ## ---------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v3
+      ## ---------------------------------------------------
+      - name: Cache setup
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+              /usr/local/bin/terraform
+              ${{ env.TERRAFORM_CODE_PATH }}/.terraform
+          key: ${{ runner.os }}-terraform-${{ github.ref_name }}
+      ## ---------------------------------------------------
+      - name: Terraform Plan
+        run: |
+          cd ${{ env.TERRAFORM_DIR }}
+          terraform plan
+      
 ...
 # EOF
