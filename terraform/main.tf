@@ -113,14 +113,14 @@ locals {
   }
   #
   builtComputeNumDataDisk = length(resource.google_compute_attached_disk.default) - 1
-  buildComputerUsers = join(", ", [for key in var.computeSshKeys : "${key.userId}"])
+  buildComputerUsers      = join(", ", [for key in var.computeSshKeys : "${key.userId}"])
   builtComputeInstanceMap = { for i, data in local.instanceConfig :
-    "${i}" => { 
-      "hostName"  = resource.google_compute_instance.default[i].hostname
-      "ipAddress" = resource.google_compute_instance.default[i].network_interface.0.access_config.0.nat_ip }
+    "${i}" => {
+      "hostName" = resource.google_compute_instance.default[i].hostname
+    "ipAddress" = resource.google_compute_instance.default[i].network_interface.0.access_config.0.nat_ip }
   }
   # map of all virtual machine instances created 
-  ansibleInventoryFile    = "../ansible/inventory.ini"
+  ansibleInventoryFile = "../ansible/inventory.ini"
   # output data setup
   output_computeInstances = var.computeInstances
 }
@@ -208,7 +208,7 @@ resource "google_compute_instance" "default" {
   metadata = {
     enable-oslogin         = false
     block-project-ssh-keys = true
-    ssh-keys = "build:${resource.tls_private_key.default.public_key_openssh}\n${join("\n", [for key in var.computeSshKeys : "${key.userId}:${key.publicKey}"])}"
+    ssh-keys               = "build:${resource.tls_private_key.default.public_key_openssh}\n${join("\n", [for key in var.computeSshKeys : "${key.userId}:${key.publicKey}"])}"
   }
 
   boot_disk {
@@ -348,7 +348,7 @@ resource "local_file" "ansibleInventory" {
 ## ---------------------------------------------------
 ## ---------------------------------------------------
 resource "local_file" "openSshPrivateKey" {
-  content         = resource.tls_private_key.default.private_key_openssh
+  content = resource.tls_private_key.default.private_key_openssh
   #
   filename        = "../ansible/google_compute_engine"
   file_permission = "0600"
@@ -362,7 +362,7 @@ resource "null_resource" "productSetup" {
     local_file.ansibleInventory,
   ]
   triggers = {
-     "alwaysRun" = formatdate("YYYYMMDDhhmmss", timestamp()),
+    "alwaysRun" = formatdate("YYYYMMDDhhmmss", timestamp()),
   }
 
   # general logging 
