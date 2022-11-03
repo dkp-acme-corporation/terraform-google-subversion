@@ -92,7 +92,7 @@ jobs:
         git config user.email "${GITLAB_USER_EMAIL}"
         git config user.name "${GITLAB_USER_NAME}"
         #git add --update *.tf *.tfvars
-        git status --short
+        git status
         if [ -n "$(git status | grep 'no changes added to commit')" ]; then
           echo "No updates required to code format" 
         else
