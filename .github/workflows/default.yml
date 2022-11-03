@@ -86,7 +86,7 @@ jobs:
     ## ---------------------------------------------------
     - name: Terraform Validate
       run: |
-        cd ${{ env.TERRAFORM_DIR }}
+        cd ${{ env.TERRAFORM_CODE_PATH }}
         terraform validate
     ## ---------------------------------------------------
     - name: Terraform Format
@@ -206,7 +206,7 @@ jobs:
       ## ---------------------------------------------------
       - name: Terraform Plan
         run: |
-          cd ${{ env.TERRAFORM_DIR }}
+          cd ${{ env.TERRAFORM_CODE_PATH }}
           terraform plan
       
 ...
