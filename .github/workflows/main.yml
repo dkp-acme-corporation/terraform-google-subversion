@@ -82,16 +82,12 @@ jobs:
     ## ---------------------------------------------------
     - name: Terraform Validate
       run: |
-        /usr/bin/git log -1 --format='%H'
         cd ${{ env.TERRAFORM_DIR }}
         terraform validate
-    - name: Git check 
-      run: |
-        which terraform
-        which git
     ## ---------------------------------------------------
     - name: Terraform Format
       run: |
+        git status --short
         cd ${{ env.TERRAFORM_DIR }}
         terraform fmt -recursive -diff
         #
