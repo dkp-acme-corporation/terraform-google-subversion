@@ -70,6 +70,10 @@ jobs:
     ## ---------------------------------------------------
     - name: Checkout source code
       uses: actions/checkout@v3
+    - name: Git check 
+      run: |
+        which terraform
+        which git
     ## ---------------------------------------------------
     - name: Cache setup
       id: cache
