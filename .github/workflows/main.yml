@@ -95,12 +95,15 @@ jobs:
         git config user.name github-actions
         #
         TMP=$(git add --update **/*.tf **/*.tfvars)
-        git status
+        echo "----------------------------------"
+        echo $TMP
+        echo "----------------------------------"
         #
         if [ -n "$(git status | grep 'no changes added to commit')" ]; then
           echo "No updates required to code format" 
         else
           # commit the needed changes
+          git status
           #git commit --message "CI ${{ github.repository }} code format changed" 
           #
           #git status --short
