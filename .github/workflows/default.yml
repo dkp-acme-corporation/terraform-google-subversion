@@ -244,15 +244,17 @@ jobs:
         uses: actions/checkout@v3
       ## ---------------------------------------------------
       - name: Create Pull Request
-        id: cpr
-        uses: peter-evans/create-pull-request@v4
+        id: create-pull-request
+        uses: repo-sync/pull-request@v2
         with:
-          branch: main
+          destination_branch: "main"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      ## ---------------------------------------------------
       - name: Check outputs
-        if: ${{ steps.cpr.outputs.pull-request-number }}
+        if: ${{ steps.create-pull-request.outputs.pr_number }}
         run: |
-          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
-          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
+          echo "Pull Request Number - ${{ steps.create-pull-request.outputs.pr_number }}"
+          echo "Pull Request URL - ${{ steps.create-pull-request.outputs.pr_url }}"
 
 
 #curl \
