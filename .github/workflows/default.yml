@@ -231,7 +231,6 @@ jobs:
           cd ${{ env.TERRAFORM_CODE_PATH }}
           terraform init
           terraform plan
-  #
   pull-request:
     permissions:
       contents: write
@@ -255,13 +254,6 @@ jobs:
         run: |
           echo "Pull Request Number - ${{ steps.create-pull-request.outputs.pr_number }}"
           echo "Pull Request URL - ${{ steps.create-pull-request.outputs.pr_url }}"
-
-
-#curl \
-#    -X DELETE \
-#    -H "Accept: application/vnd.github.v3+json" \
-#    -H "Authorization: token <TOKEN>" \
-#    https://api.github.com/repos/OWNER/REPO/actions/caches/CACHE_ID   
 
 ...
 # EOF
