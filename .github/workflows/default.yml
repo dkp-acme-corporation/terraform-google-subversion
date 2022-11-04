@@ -206,7 +206,6 @@ jobs:
           sarif_file: ${{ env.OUTPUTFILE }}
   testing:
     runs-on: ubuntu-latest
-    if: ${{ success() }}
     needs: [ scanning-trivy, scanning-snyk ]
     #
     steps:
@@ -234,6 +233,7 @@ jobs:
           terraform plan
   pull-request:
     runs-on: ubuntu-latest
+    if: ${{ success() }}
     steps:
       - name: Create Pull Request
         id: cpr
