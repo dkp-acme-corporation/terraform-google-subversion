@@ -74,53 +74,52 @@ jobs:
    needs: [ preparation ]
    #
    steps:
-    ## ---------------------------------------------------
-    - name: Initialization
-      run: |
-        echo "TF_WORKSPACE=$(basename ${{ github.repository }})" >> $GITHUB_ENV
-    ## ---------------------------------------------------
-    - name: Checkout code
-      uses: actions/checkout@v3
-    ## ---------------------------------------------------
-    - name: Cache setup
-      id: cache
-      uses: actions/cache@v3
-      with:
-        path: |
-            /usr/local/bin/terraform
-            ${{ env.TERRAFORM_CODE_PATH }}/.terraform
-        key: ${{ runner.os }}-terraform-${{ github.ref_name }}
-    ## ---------------------------------------------------
-    - name: debug
-      run: |
-        cd ${{ env.TERRAFORM_CODE_PATH }}
-        ls -lRa
-    ## ---------------------------------------------------
-    - name: Terraform Validate
-      run: |
-        #cd ${{ env.TERRAFORM_CODE_PATH }}
-        terraform validate
-    ## ---------------------------------------------------
-    - name: Terraform Format
-      run: |
-        terraform fmt -recursive -diff
-        #
-        git config user.email github-actions@github.com
-        git config user.name github-actions
-        #
-        TMP=$(git add --update **/*.tf **/*.tfvars)
-        #
-        if [ -n "$(git status | grep 'nothing to commit')" ]; then
-          echo "No updates required to code format" 
-        else
-          # commit the needed changes
-          git commit --message "GitHub Run ID[${{ github.run_id }}] updated code format" 
-          # push the updated code back into the repo
-          git push
+      ## ---------------------------------------------------
+      - name: Initialization
+        run: |
+          echo "TF_WORKSPACE=$(basename ${{ github.repository }})" >> $GITHUB_ENV
+      ## ---------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v3
+      ## ---------------------------------------------------
+      - name: Cache setup
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+              /usr/local/bin/terraform
+              ${{ env.TERRAFORM_CODE_PATH }}/.terraform
+          key: ${{ runner.os }}-terraform-${{ github.ref_name }}
+      ## ---------------------------------------------------
+      - name: debug
+        run: |
+          cd ${{ env.TERRAFORM_CODE_PATH }}
+          ls -lRa
+      ## ---------------------------------------------------
+      - name: Terraform Validate
+        run: |
+          cd ${{ env.TERRAFORM_CODE_PATH }}
+          terraform validate
+      ## ---------------------------------------------------
+      - name: Terraform Format
+        run: |
+          terraform fmt -recursive -diff
           #
-          echo "Updates to the repository completed successfully" 
-        fi
-  # ---------------------------------------------------
+          git config user.email github-actions@github.com
+          git config user.name github-actions
+          #
+          TMP=$(git add --update **/*.tf **/*.tfvars)
+          #
+          if [ -n "$(git status | grep 'nothing to commit')" ]; then
+            echo "No updates required to code format" 
+          else
+            # commit the needed changes
+            git commit --message "GitHub Run ID[${{ github.run_id }}] updated code format" 
+            # push the updated code back into the repo
+            git push
+            #
+            echo "Updates to the repository completed successfully" 
+          fi
   scanning-trivy:
    runs-on: ubuntu-latest
    needs: [ validation ]
