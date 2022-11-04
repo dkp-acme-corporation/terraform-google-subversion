@@ -89,12 +89,11 @@ jobs:
       run: |
         cd ${{ env.TERRAFORM_CODE_PATH }}
         terraform --version
-        find .
+        ls -lR
     ## ---------------------------------------------------
     - name: Terraform Validate
       run: |
         cd ${{ env.TERRAFORM_CODE_PATH }}
-        find .
         terraform validate
     ## ---------------------------------------------------
     - name: Terraform Format
