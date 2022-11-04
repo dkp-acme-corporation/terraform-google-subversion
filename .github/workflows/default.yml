@@ -233,8 +233,11 @@ jobs:
           terraform plan
   #
   pull-request:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
-    if: ${{ success() }}
+    needs: [ testing ]
     steps:
       - name: Create Pull Request
         id: cpr
