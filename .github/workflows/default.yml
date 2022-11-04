@@ -8,7 +8,7 @@ run-name: Standard workflow run by ${{ github.actor }}
 on:
   push:
    branches:
-      - 'main'
+      - '!main'
   workflow_dispatch:
 
 # Relative paths will be under the $GITHUB_WORKSPACE directory
