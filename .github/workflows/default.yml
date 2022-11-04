@@ -92,7 +92,7 @@ jobs:
     ## ---------------------------------------------------
     - name: Terraform Validate
       run: |
-        cd ${{ env.TERRAFORM_CODE_PATH }}
+        #cd ${{ env.TERRAFORM_CODE_PATH }}
         terraform validate
     ## ---------------------------------------------------
     - name: Terraform Format
