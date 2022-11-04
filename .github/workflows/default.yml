@@ -231,7 +231,6 @@ jobs:
           cd ${{ env.TERRAFORM_CODE_PATH }}
           terraform init
           terraform plan
-  #
   pull-request:
     permissions:
       contents: write
