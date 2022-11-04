@@ -76,7 +76,7 @@ jobs:
   deployment:
     runs-on: ubuntu-latest
     if: ${{ success() }}
-    needs: [ deployment ]
+    needs: [ preparation ]
     environment: Prd
     #
     steps:
