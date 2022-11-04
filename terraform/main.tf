@@ -387,10 +387,10 @@ resource "null_resource" "productSetup" {
     ]
   }
   # execute Ansible Configuration as Code
-  provisioner "local-exec" {
-    #
-    command = "cd ../ansible ; ansible-playbook --key-file ../ansible/google_compute_engine --inventory-file inventory.ini --limit ${each.value["hostName"]} playbook.yml"
-  }
+  #provisioner "local-exec" {
+  #  #
+  #  command = "cd ../ansible ; ansible-playbook --key-file ../ansible/google_compute_engine --inventory-file inventory.ini --limit ${each.value["hostName"]} playbook.yml"
+  #}
 } #END => productSetup
 
 #
