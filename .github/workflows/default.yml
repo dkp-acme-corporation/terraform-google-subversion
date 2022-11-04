@@ -246,6 +246,8 @@ jobs:
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v4
+        with:
+          branch: main
       - name: Check outputs
         if: ${{ steps.cpr.outputs.pull-request-number }}
         run: |
