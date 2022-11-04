@@ -87,15 +87,14 @@ jobs:
     ## ---------------------------------------------------
     - name: debug
       run: |
-        pwd
+        cd ${{ env.TERRAFORM_CODE_PATH }}
+        terraform --version
         find .
-        set
-        terraform version
-      ## ---------------------
     ## ---------------------------------------------------
     - name: Terraform Validate
       run: |
         cd ${{ env.TERRAFORM_CODE_PATH }}
+        find .
         terraform validate
     ## ---------------------------------------------------
     - name: Terraform Format
@@ -217,6 +216,11 @@ jobs:
         run: |
           cd ${{ env.TERRAFORM_CODE_PATH }}
           terraform plan
-      
+
+curl \
+    -X DELETE \
+    -H "Accept: application/vnd.github.v3+json" \
+    -H "Authorization: token <TOKEN>" \
+    https://api.github.com/repos/OWNER/REPO/actions/caches/CACHE_ID   
 ...
 # EOF
